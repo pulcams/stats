@@ -15,4 +15,5 @@ TODO
 * generate reports from Python (jinja?)
 * email / post directly from script
 * centralize lookup tables outside of Access (e.g. put master copies on lib-tsserver and inform other users)
+* generate visualizations (individuals over time, turn-around time, etc.)
 
