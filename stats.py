@@ -14,6 +14,7 @@ import csv
 import cx_Oracle
 import datetime
 import logging
+import os
 import re
 import shutil
 import sys, subprocess
@@ -21,13 +22,8 @@ import time
 import datetime
 
 # TODO ============================
-# send tables to tsserver (requires ms access interaction) - mdbtools 
-# - /etc/odbc.ini
-# - /etc/odbcinst.ini
-# -  mdb-tables 'nameofdb.mdb'
-# -  mdb-export 'nameofdb.mdb' tablename > out.csv
-# -  gmdb2 for gui
-# - isql -v test [unix odbc util] - this works if local but how to connect to share?
+# send tables to tsserver? 
+# document mounting shares with noserverino,nounix
 # generate reports (jinja?)
 # email / *post
 # sync changes to operators table (master copy on lib-tsserver)
@@ -50,6 +46,7 @@ archivedir = "./archive/"
 outdir = "./out/"
 all903mdb = '/mnt/lib-terminal/catalog/fpdb/new_page_1.mdb' # up-to-date data from Cataloguing Modification Reporting Form (903)
 allauthmdb = '/mnt/lib-tsserver/cams/for Lena/90x stats.mdb' # latest authorities data, manually entered by Lena
+w7 = '/home/pmgreen/Documents/petergreen/stats_temp/'
 
 # logging
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
@@ -109,8 +106,9 @@ def main():
 	get_tables(allauthmdb, all903mdb)
 	#clean_902()
 	#clean_904()
-	process_authorities()
+	#process_authorities()
 	#process_903()
+	cp_files()
 	#archive()
 	run_logger.info("end " + "=" * 27)
 
@@ -631,6 +629,15 @@ def get_tables(*mdbs):
 		        file.close()
 			msg = 'got \'' + table + '\' from ' + mdb
 			run_logger.info(msg)
+			
+def cp_files():
+	print(outdir)
+	src = os.listdir(outdir)
+	for f in src:
+		print(outdir + f,w7)
+		shutil.copy(outdir + f, w7)
+		msg = 'moved ' + f
+		run_logger.info(msg)
 			
 if __name__ == "__main__":
 	main()
