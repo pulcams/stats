@@ -2,11 +2,8 @@
 #-*- coding: utf-8 -*-
 """
 Processing productivity stats
-At this stage (as of 2015/01), the following tables need to be in ./data/ as csv files *before* running this script.
-(1) Results.csv from \\lib-terminal\catalog\fpdb as 'all903.csv'
-(2) latest 90x report from \\lib-tsserver\CaMS\for Lena\90x stats.mdb as 'authoritiesyyyymm.csv'
-Once these have been gathered, run with python stats.py -m yyyymm (e.g. python stats.py -m 201504)
-Once all's done, the _out files (in ./temp) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069).
+Run with python stats.py -m yyyymm (e.g. python stats.py -m 201504)
+Once all's done, the _out files (in ./out) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069).
 from 2014/12
 pmg
 """
@@ -19,15 +16,22 @@ import datetime
 import logging
 import re
 import shutil
-import sys
+import sys, subprocess
 import time
 import datetime
 
 # TODO ============================
-# send tables to tsserver (requires ms access interaction)
+# send tables to tsserver (requires ms access interaction) - mdbtools 
+# - /etc/odbc.ini
+# - /etc/odbcinst.ini
+# -  mdb-tables 'nameofdb.mdb'
+# -  mdb-export 'nameofdb.mdb' tablename > out.csv
+# -  gmdb2 for gui
+# - isql -v test [unix odbc util] - this works if local but how to connect to share?
 # generate reports (jinja?)
 # email / *post
 # sync changes to operators table (master copy on lib-tsserver)
+# how-tos on tsserver legacy and current
 # =================================
 config = ConfigParser.RawConfigParser()
 config.read('vger.cfg')
@@ -41,8 +45,11 @@ db = cx_Oracle.connect(user,pw,dsn_tns)
 today = time.strftime('%Y%m')
 msg=''
 f300=''
-datadir = "./data/"
+indir = "./in/"
 archivedir = "./archive/"
+outdir = "./out/"
+all903mdb = '/mnt/lib-terminal/catalog/fpdb/new_page_1.mdb' # up-to-date data from Cataloguing Modification Reporting Form (903)
+allauthmdb = '/mnt/lib-tsserver/cams/for Lena/90x stats.mdb' # latest authorities data, manually entered by Lena
 
 # logging
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
@@ -68,7 +75,7 @@ args = vars(parser.parse_args())
 
 thisrun = args['month']
 lastrun = '%s%02d01' % (thisrun[0:4],int(thisrun[4:6]) - 1)
-print(lastrun)
+lastauth = 'authorities_' + datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b').replace(" ","_")
 
 if not re.match('^\d{6}$',thisrun):
 	print('Please enter the date in form YYYYDD')
@@ -99,10 +106,11 @@ def main():
 	run_logger.info("start " + "=" * 25)
 	#get_902()
 	#get_904()
+	get_tables(allauthmdb, all903mdb)
 	#clean_902()
 	#clean_904()
-	#process_authorities()
-	process_903()
+	process_authorities()
+	#process_903()
 	#archive()
 	run_logger.info("end " + "=" * 27)
 
@@ -127,7 +135,7 @@ def get_902():
 			OR ((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')
 			AND (BIB_HISTORY.ACTION_TYPE_ID)<>1))""" % (startdate,enddate,startdate,enddate)
 	c.execute(SQL)
-	with open(datadir + 'cat.csv',"wb+") as report:
+	with open(indir + 'cat.csv',"wb+") as report:
 		writer = csv.writer(report)
 		header = ('V_ID','OP_ID','SUB_B','SUB_D','SUB_E','SUB_F','SUB_G','SUB_6','SUB_7','SUB_S')
 		writer.writerow(header)
@@ -155,7 +163,7 @@ def get_904():
 		OR (((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
 		AND ((BIB_HISTORY.ACTION_TYPE_ID)<>1)))""" % (startdate,enddate,startdate,enddate)
 	c.execute(SQL)
-	with open(datadir + 'acq.csv',"wb+") as report:
+	with open(indir + 'acq.csv',"wb+") as report:
 		writer = csv.writer(report)
 		header = ('V_ID','OP_ID','SUB_B','SUB_C','SUB_E','SUB_H')
 		writer.writerow(header)
@@ -173,7 +181,7 @@ def clean_902():
 	"""
 	Clean 902 report
 	"""
-	with open(datadir + 'cat.csv',"rb") as infile, open('./temp/902_out.csv','wb+') as outfile:
+	with open(indir + 'cat.csv',"rb") as infile, open('./temp/902_out.csv','wb+') as outfile:
 		reader = csv.reader(infile)
 		writer = csv.writer(outfile)
 		next(reader, None)  # skip the headers
@@ -351,7 +359,7 @@ def clean_904():
 	"""
 	Clean up 904 report.
 	"""
-	with open(datadir + 'acq.csv',"rb") as infile, open('./temp/904_out.csv','wb+') as outfile:
+	with open(indir + 'acq.csv',"rb") as infile, open('./temp/904_out.csv','wb+') as outfile:
 		reader = csv.reader(infile)
 		writer = csv.writer(outfile)
 		next(reader, None)  # skip the headers
@@ -504,10 +512,10 @@ def process_authorities():
 	"""
 	Filter last month's authorities report.
 	"""
-	with open(datadir + 'authorities' + thisrun + '.csv','rb') as auths, open('./temp/auths_out.csv','wb+') as authsout:
+	with open(indir + lastauth + '.csv','rb') as auths, open('./temp/auths_out.csv','wb+') as authsout:
 		reader = csv.reader(auths)
 		writer = csv.writer(authsout)
-		#next(reader, None)
+		next(reader, None)
 		header = ('new order','initials','NACO','updates','SACO','NACO series','name/title','053')
 		writer.writerow(header)
 		for line in reader:
@@ -550,8 +558,8 @@ def process_903():
 		lastid = get_last_row('./archive/'+lastrun+'_903.csv')
 		src = lastrun
 	except:
-		lastid = get_last_row('./temp/903_out.csv')
-		src = './temp/903_out.csv'
+		lastid = get_last_row(outdir + '/903_out.csv')
+		src = outdir + '903_out.csv'
 	lastidchk = raw_input("Last id in "+src+" is " + lastid[0]+'. If this is not correct, enter the last id. ')
 	if lastidchk == '':
 		lastid = lastid[0]
@@ -561,7 +569,7 @@ def process_903():
 	if not re.match('^\d+$',lastid):
 		sys.exit('Id needs to be an integer.')
 	
-	with open(datadir + 'all903.csv','rb') as f903, open('./temp/903_out.csv','wb+') as f903out:
+	with open(indir + 'Results.csv','rb') as f903, open(outdir + '903_out.csv','wb+') as f903out:
 		reader = csv.reader(f903)
 		writer = csv.writer(f903out)
 		next(reader, None)
@@ -583,7 +591,7 @@ def archive():
 	"""
 	try:
 		for report in ['902','903','904','auths']:
-			temp = './temp/' + report + '_out.csv'
+			temp = outdir + report + '_out.csv'
 			store = archivedir + thisrun + '_' + report + '.csv'
 			shutil.copy(temp, store)
 	except:
@@ -597,10 +605,32 @@ def get_last_row(csv_filename):
 	Grabbed from here: http://stackoverflow.com/questions/20296955/reading-last-row-from-csv-file-python-error
 	For getting last row of 903 report.
 	"""
-    with open(csv_filename, 'rb') as f:
-        return deque(csv.reader(f), 1)[0]
-
-	print ', '.join(get_last_row(filename))	
+	with open(csv_filename, 'rb') as f:
+		return deque(csv.reader(f), 1)[0]
+	print ', '.join(get_last_row(filename))
+	
+def get_tables(*mdbs):
+	for mdb in mdbs:
+		last = ''
+		# Get the list of table names with "mdb-tables"
+		table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]
+		tables = table_names.split('\n')
+	
+		if '90x' in mdb:
+			last = d = datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b')
+			lasttbl = 'authorities ' + last
+			
+		## Dump each table as a CSV file using "mdb-export",
+		## converting " " in table names to "_" for the CSV filenames.
+		for table in tables:
+		    if table != '' and (table == 'Results' or table == lasttbl): # Results is 903, latest will be latest authorities table
+		        filename = table.replace(" ","_") + ".csv"
+		        file = open(indir + filename, 'w')
+		        contents = subprocess.Popen(["mdb-export", mdb, table],stdout=subprocess.PIPE).communicate()[0]
+		        file.write(contents)
+		        file.close()
+			msg = 'got \'' + table + '\' from ' + mdb
+			run_logger.info(msg)
 			
 if __name__ == "__main__":
 	main()
