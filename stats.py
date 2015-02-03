@@ -25,9 +25,9 @@ import datetime
 # send tables to tsserver? 
 # document mounting shares with noserverino,nounix
 # generate reports (jinja?)
-# email / *post
+# email / post (where?)
 # sync changes to operators table (master copy on lib-tsserver)
-# how-tos on tsserver legacy and current
+# how-tos on tsserver -- legacy and current
 # =================================
 config = ConfigParser.RawConfigParser()
 config.read('vger.cfg')
@@ -101,15 +101,15 @@ with open('./lookups/legit_PCCers.csv','rb') as legit:
 
 def main():
 	run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
+	get_902()
+	get_904()
 	get_tables(allauthmdb, all903mdb)
-	#clean_902()
-	#clean_904()
-	#process_authorities()
-	#process_903()
+	clean_902()
+	clean_904()
+	process_authorities()
+	process_903()
 	cp_files()
-	#archive()
+	archive()
 	run_logger.info("end " + "=" * 27)
 
 #=======================================================================
@@ -142,7 +142,7 @@ def get_902():
 	c.close()
 	msg = "Got 902 data!"
 	logging.info(msg)
-	print(msg)
+	#print(msg)
 
 #=======================================================================
 # 904 report
@@ -170,7 +170,7 @@ def get_904():
 	c.close()
 	msg = "Got 904 data!"
 	logging.info(msg)
-	print(msg)
+	#print(msg)
 
 #=======================================================================
 # clean the 902 report
@@ -179,7 +179,7 @@ def clean_902():
 	"""
 	Clean 902 report
 	"""
-	with open(indir + 'cat.csv',"rb") as infile, open('./temp/902_out.csv','wb+') as outfile:
+	with open(indir + 'cat.csv',"rb") as infile, open(outdir + '902_out.csv','wb+') as outfile:
 		reader = csv.reader(infile)
 		writer = csv.writer(outfile)
 		next(reader, None)  # skip the headers
@@ -236,7 +236,7 @@ def clean_902():
 				if (sub_b != '' and sub_b not in ('b','c','l','m','o','r','s','x','z')) or (sub_b == ''):
 					# TODO: refine this: checking 040 and 035
 					c = db.cursor()
-					toc = '' # type of cataloging
+					toc = 'm' # type of cataloging (m as default)
 					SQL = """SELECT princetondb.GETALLBIBTAG(BIB_TEXT.BIB_ID, '040',2) as f040, princetondb.GETALLBIBTAG(BIB_TEXT.BIB_ID, '035',2) as f035 FROM BIB_TEXT 
 					WHERE BIB_ID = '%s'""" % bbid
 					c.execute(SQL)
@@ -357,7 +357,7 @@ def clean_904():
 	"""
 	Clean up 904 report.
 	"""
-	with open(indir + 'acq.csv',"rb") as infile, open('./temp/904_out.csv','wb+') as outfile:
+	with open(indir + 'acq.csv',"rb") as infile, open(outdir + '904_out.csv','wb+') as outfile:
 		reader = csv.reader(infile)
 		writer = csv.writer(outfile)
 		next(reader, None)  # skip the headers
@@ -510,7 +510,7 @@ def process_authorities():
 	"""
 	Filter last month's authorities report.
 	"""
-	with open(indir + lastauth + '.csv','rb') as auths, open('./temp/auths_out.csv','wb+') as authsout:
+	with open(indir + lastauth + '.csv','rb') as auths, open(outdir + 'auths_out.csv','wb+') as authsout:
 		reader = csv.reader(auths)
 		writer = csv.writer(authsout)
 		next(reader, None)
@@ -556,14 +556,14 @@ def process_903():
 		lastid = get_last_row('./archive/'+lastrun+'_903.csv')
 		src = lastrun
 	except:
-		lastid = get_last_row(outdir + '/903_out.csv')
+		lastid = get_last_row(outdir + '903_out.csv')
 		src = outdir + '903_out.csv'
-	lastidchk = raw_input("Last id in "+src+" is " + lastid[0]+'. If this is not correct, enter the last id. ')
+	lastidchk = raw_input("Last id in "+src+" is " + lastid[0]+'. If this is not correct, enter the last id from the previous 903 report. ')
 	if lastidchk == '':
 		lastid = lastid[0]
 	else:
 		lastid = lastidchk
-	lastdate = raw_input("What's the end date (dpk and nb made large entries) yyyy/mm/dd (incl.)? ")
+	lastdate = raw_input("What's the end date (dpk and nb made large entries) yyyymmdd (incl.)? ")
 	if not re.match('^\d+$',lastid):
 		sys.exit('Id needs to be an integer.')
 	
@@ -576,12 +576,12 @@ def process_903():
 		for line in reader:
 			thisid = line[0]
 			timestamp = line[9]
-			d = datetime.datetime.strptime(timestamp, '%m/%d/%Y %H:%M:%S').strftime('%Y%m%d')
-			if d <= lastdate and int(thisid) > int(lastid[0]):
+			d = datetime.datetime.strptime(timestamp, '%m/%d/%y %H:%M:%S').strftime('%Y%m%d')
+			if (int(d) <= int(lastdate)) and (int(thisid) > int(lastid)):
+				print('true', d, '<=',lastdate,'   ',thisid, lastid)
 				writer.writerow(line)
 	msg = '903 table has been filtered'
 	run_logger.info(msg)
-	print(msg)
 	
 def archive():
 	"""
@@ -594,9 +594,11 @@ def archive():
 			shutil.copy(temp, store)
 	except:
 		etype,evalue,etraceback = sys.exc_info()
-		print('problem archiving reports ' + evalue)
+		print(evalue)
 	
-	print('reports archived')
+	msg = 'reports archived'
+	run_logger.info(msg)
+	print(msg)
 
 def get_last_row(csv_filename):
 	"""
@@ -608,6 +610,9 @@ def get_last_row(csv_filename):
 	print ', '.join(get_last_row(filename))
 	
 def get_tables(*mdbs):
+	"""
+	Get latest 903 and authorities tables for processing
+	"""
 	for mdb in mdbs:
 		last = ''
 		# Get the list of table names with "mdb-tables"
@@ -631,6 +636,10 @@ def get_tables(*mdbs):
 			run_logger.info(msg)
 			
 def cp_files():
+	"""
+	move the cleaned files (902, 903, 904, auth) to Windows 7 machine,
+	where reports will be generated using MS Access (boo!)
+	"""
 	print(outdir)
 	src = os.listdir(outdir)
 	for f in src:
