@@ -22,7 +22,7 @@ import time
 import datetime
 
 # TODO ============================
-# send tables to tsserver? 
+# send tables to tsserver as csv
 # document mounting shares with noserverino,nounix
 # generate reports (jinja?)
 # email / post (where?)
@@ -100,9 +100,12 @@ with open('./lookups/legit_PCCers.csv','rb') as legit:
 		legit_pcc.append(l[1])
 
 def main():
+	"""
+	Call all of the functions sequentially
+	"""
 	run_logger.info("start " + "=" * 25)
-	get_902()
-	get_904()
+	#get_902()
+	#get_904()
 	get_tables(allauthmdb, all903mdb)
 	clean_902()
 	clean_904()
@@ -240,18 +243,21 @@ def clean_902():
 					SQL = """SELECT princetondb.GETALLBIBTAG(BIB_TEXT.BIB_ID, '040',2) as f040, princetondb.GETALLBIBTAG(BIB_TEXT.BIB_ID, '035',2) as f035 FROM BIB_TEXT 
 					WHERE BIB_ID = '%s'""" % bbid
 					c.execute(SQL)
-					for row in c:
-						f040 = ''.join(row)
-						print(f040)
-						if '$aDLC' in f040 and '$cPUL' in f040: 
-							toc = 'l'
-						elif f040.count('$d') > 1 or '(OCoLC)' in f040:
-							toc = 'm'
-						elif '$aNjP' in f040:
-							toc = 'o'
-						msg = '%s,902$b,%s,%s' % (bbid,sub_b,toc)
-						change_logger.info(msg)
-						print(msg)
+					try:
+						for row in c:
+							f040 = ''.join(row)
+							print(f040)
+							if '$aDLC' in f040 and '$cPUL' in f040: 
+								toc = 'l'
+							elif f040.count('$d') > 1 or '(OCoLC)' in f040:
+								toc = 'm'
+							elif '$aNjP' in f040:
+								toc = 'o'
+							msg = '%s,902$b,%s,%s' % (bbid,sub_b,toc)
+							change_logger.info(msg)
+							print(msg)
+					except:
+						toc = 'm' # guessing that it's member if no 040 TODO - refine this
 							
 							
 						sub_b = toc
@@ -505,7 +511,7 @@ def clean_904():
 
 #=======================================================================
 # process authorities report
-#=======================================================================				
+#=======================================================================
 def process_authorities():
 	"""
 	Filter last month's authorities report.
@@ -547,7 +553,7 @@ def process_authorities():
 
 #=======================================================================
 # process 903 report
-#=======================================================================		
+#=======================================================================
 def process_903():
 	"""
 	Filter 903 report. 
@@ -575,6 +581,7 @@ def process_903():
 		writer.writerow(header)
 		for line in reader:
 			thisid = line[0]
+			initials = line[1].lower()
 			timestamp = line[9]
 			d = datetime.datetime.strptime(timestamp, '%m/%d/%y %H:%M:%S').strftime('%Y%m%d')
 			if (int(d) <= int(lastdate)) and (int(thisid) > int(lastid)):
