@@ -2,7 +2,7 @@
 #-*- coding: utf-8 -*-
 """
 Processing productivity stats
-Run with python stats.py -m yyyymm (e.g. python stats.py -m 201504)
+Run with `python stats.py -m yyyymm` (e.g. python stats.py -m 201504)
 Once all's done, the _out files (in ./out) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069).
 from 2014/12
 pmg
@@ -28,6 +28,7 @@ import datetime
 # email / post (where?)
 # sync changes to operators table (master copy on lib-tsserver)
 # how-tos on tsserver -- legacy and current
+# occaisional double entries into field, e.g. 'm l' for 902 sub_b
 # =================================
 config = ConfigParser.RawConfigParser()
 config.read('vger.cfg')
@@ -90,7 +91,7 @@ operators = []
 with open('./lookups/operators.csv','rb') as ops:
 	oreader = csv.reader(ops)
 	for l in oreader:
-		operators.append(l[2])
+		operators.append(l[3])
 
 # legit pcc'ers
 legit_pcc = []
@@ -104,8 +105,8 @@ def main():
 	Call all of the functions sequentially
 	"""
 	run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
+	get_902()
+	get_904()
 	get_tables(allauthmdb, all903mdb)
 	clean_902()
 	clean_904()
@@ -258,7 +259,6 @@ def clean_902():
 							print(msg)
 					except:
 						toc = 'm' # guessing that it's member if no 040 TODO - refine this
-							
 							
 						sub_b = toc
 					c.close()
@@ -564,12 +564,12 @@ def process_903():
 	except:
 		lastid = get_last_row(outdir + '903_out.csv')
 		src = outdir + '903_out.csv'
-	lastidchk = raw_input("Last id in "+src+" is " + lastid[0]+'. If this is not correct, enter the last id from the previous 903 report. ')
+	lastidchk = raw_input("Last id in "+src+" is " + lastid[0]+'. If this is not correct, enter the last id from the previous 903 report. Otherwise, just hit enter.')
 	if lastidchk == '':
 		lastid = lastid[0]
 	else:
 		lastid = lastidchk
-	lastdate = raw_input("What's the end date (dpk and nb made large entries) yyyymmdd (incl.)? ")
+	lastdate = raw_input("What's the end date (dpk and nb made large entries) yyyymmdd (inclusive)? ")
 	if not re.match('^\d+$',lastid):
 		sys.exit('Id needs to be an integer.')
 	
@@ -626,8 +626,8 @@ def get_tables(*mdbs):
 		table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]
 		tables = table_names.split('\n')
 	
-		if '90x' in mdb:
-			last = d = datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b')
+		if '90x' in mdb: # the database is called "90x stats"
+			last = datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b')
 			lasttbl = 'authorities ' + last
 			
 		## Dump each table as a CSV file using "mdb-export",
