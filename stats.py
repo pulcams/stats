@@ -343,7 +343,7 @@ def clean_902():
 				# read in file of legit pcc'ers	
 				# not in legit pcc and subg=p, set subb=m and subg=?
 				if sub_g == 'p' and opid not in (legit_pcc):
-					msg = '%s, %s, $g%s $b%s, $g%s $b%s' % (bbid,opid,sub_g,sub_b,'?','m')
+					msg = '%s, %s, pcc $g%s $b%s, $g%s $b%s' % (bbid,opid,sub_g,sub_b,'?','m')
 					change_logger.info(msg)
 					print(msg)
 					sub_g = '?'
@@ -623,7 +623,7 @@ def get_tables(*mdbs):
 	for mdb in mdbs:
 		last = ''
 		# Get the list of table names with "mdb-tables"
-		table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]
+		table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]	
 		tables = table_names.split('\n')
 	
 		if '90x' in mdb: # the database is called "90x stats"
