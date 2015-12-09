@@ -9,6 +9,10 @@ Run stats.py as `python stats.py -m yyyymm` (e.g. `python stats.py -m 201602`)
 
 After the script has run successfully, the `_out` files (from ./out, e.g. `902_out.csv`) are sent to the W7 machine and imported into 'stats.accdb'.
 
+Needs
+=====
+mdbtools `sudo apt-get install mdbtools`
+
 TODO
 ====
 * send tables to tsserver? 
