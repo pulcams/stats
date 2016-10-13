@@ -20,7 +20,6 @@ import shutil
 import sys, subprocess
 import time
 import datetime
-
 # TODO ============================
 # send tables to tsserver as csv
 # document mounting shares with noserverino,nounix
@@ -121,28 +120,71 @@ def main():
 #=======================================================================
 def get_902():
 	c = db.cursor()
+	#SQL = """SELECT DISTINCT BIB_MASTER.BIB_ID as V_ID,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','a') as OP_ID,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','b') as Sub_B,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','d') as Sub_D,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','e') as Sub_E,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','f') as Sub_F,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','g') as Sub_G,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','6') as Sub_6,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','7') as Sub_7,
+			#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','s') as Sub_S
+			#FROM BIB_MASTER LEFT JOIN BIB_HISTORY ON BIB_MASTER.BIB_ID = BIB_HISTORY.BIB_ID
+			#WHERE
+			#(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
+			#OR ((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')
+			#AND (BIB_HISTORY.ACTION_TYPE_ID)<>1)) and rownum <= 3""" % (startdate,enddate,startdate,enddate)
 	SQL = """SELECT DISTINCT BIB_MASTER.BIB_ID as V_ID,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','a') as OP_ID,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','b') as Sub_B,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','d') as Sub_D,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','e') as Sub_E,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','f') as Sub_F,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','g') as Sub_G,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','6') as Sub_6,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','7') as Sub_7,
-			princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '902','s') as Sub_S
+			princetondb.GETALLBIBTAG(BIB_MASTER.BIB_ID, '902',2) as f902
 			FROM BIB_MASTER LEFT JOIN BIB_HISTORY ON BIB_MASTER.BIB_ID = BIB_HISTORY.BIB_ID
 			WHERE
 			(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
 			OR ((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')
 			AND (BIB_HISTORY.ACTION_TYPE_ID)<>1))""" % (startdate,enddate,startdate,enddate)
+	print(SQL)
 	c.execute(SQL)
 	with open(indir + 'cat.csv',"wb+") as report:
 		writer = csv.writer(report)
 		header = ('V_ID','OP_ID','SUB_B','SUB_D','SUB_E','SUB_F','SUB_G','SUB_6','SUB_7','SUB_S')
 		writer.writerow(header)
 		for row in c:
-			writer.writerow(row)
+			newrow = ''
+			s902a = ''
+			s902b = ''
+			s902d = ''
+			s902e = ''
+			s902f = ''
+			s902g = ''
+			s9026 = ''
+			s9027 = ''
+			s902s = ''
+			bibid = row[0]
+			f902 = row[1]
+			if row[1]:
+				f902 = row[1]
+				f902 = f902.replace('902:  :','').replace(' ','')
+				f902_split = f902.split('$')
+				if len(f902_split) > 1:
+					s902a = f902_split[1][1:]
+				if len(f902_split) > 2:
+					s902b = f902_split[2][1:]
+				if len(f902_split) > 3:
+					s9026 = f902_split[3][1:]
+				if len(f902_split) > 4:
+					s9027 = f902_split[4][1:]
+				if len(f902_split) > 5:
+					s902d = f902_split[5][1:]
+				if len(f902_split) > 6:
+					s902f = f902_split[6][1:]
+				if len(f902_split) > 7:
+					s902e = f902_split[7][1:]
+				if len(f902_split) > 8:
+					s9027 = f902_split[8][1:]
+				if len(f902_split) > 9:
+					s902s = f902_split[9][1:]
+			newrow = [bibid,s902a,s902b,s902d,s902e,s902f,s902g,s9026,s9027,s902s]
+			writer.writerow(newrow)
 	c.close()
 	msg = "Got 902 data!"
 	logging.info(msg)
@@ -153,28 +195,58 @@ def get_902():
 #=======================================================================
 def get_904():
 	c = db.cursor()
+	#SQL = """SELECT DISTINCT BIB_MASTER.BIB_ID as V_ID,
+		#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','a') as OP_ID,
+		#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','b') as Sub_B,
+		#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','c') as Sub_C,
+		#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','e') as Sub_E,
+		#princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','h') as Sub_H
+		#FROM BIB_MASTER LEFT JOIN BIB_HISTORY ON BIB_MASTER.BIB_ID = BIB_HISTORY.BIB_ID
+		#WHERE 
+		#(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd'))
+		#OR (((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
+		#AND ((BIB_HISTORY.ACTION_TYPE_ID)<>1))) AND ROWNUM <= 3""" % (startdate,enddate,startdate,enddate)
 	SQL = """SELECT DISTINCT BIB_MASTER.BIB_ID as V_ID,
-		princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','a') as OP_ID,
-		princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','b') as Sub_B,
-		princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','c') as Sub_C,
-		princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','e') as Sub_E,
-		princetondb.GETBIBSUBFIELD(BIB_MASTER.BIB_ID, '904','h') as Sub_H
+		princetondb.GETALLBIBTAG(BIB_MASTER.BIB_ID, '904',2) as f904
 		FROM BIB_MASTER LEFT JOIN BIB_HISTORY ON BIB_MASTER.BIB_ID = BIB_HISTORY.BIB_ID
 		WHERE 
 		(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd'))
 		OR (((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
-		AND ((BIB_HISTORY.ACTION_TYPE_ID)<>1)))""" % (startdate,enddate,startdate,enddate)
+		AND ((BIB_HISTORY.ACTION_TYPE_ID)<>1)))""" % (startdate,enddate,startdate,enddate)	
 	c.execute(SQL)
+	print(SQL)
 	with open(indir + 'acq.csv',"wb+") as report:
 		writer = csv.writer(report)
 		header = ('V_ID','OP_ID','SUB_B','SUB_C','SUB_E','SUB_H')
 		writer.writerow(header)
 		for row in c:
-			writer.writerow(row)
+			newrow = ''
+			s904a = ''
+			s904b = ''
+			s904c = ''
+			s904e = ''
+			s904h = ''
+			bibid = row[0]
+			if row[1]:
+				f904 = row[1]
+				f904 = f904.replace('904:  :','').replace(' ','')
+				f904_split = f904.split('$')
+				if len(f904_split) > 1:
+					s904a = f904_split[1][1:]
+				if len(f904_split) > 2:
+					s904b = f904_split[2][1:]
+				if len(f904_split) > 3:
+					s904h = f904_split[3][1:]
+				if len(f904_split) > 4:
+					s904c = f904_split[4][1:]
+				if len(f904_split) > 5:
+					s904e = f904_split[5][1:]
+			newrow = [bibid,s904a,s904b,s904c,s904e,s904h]
+			writer.writerow(newrow)
 	c.close()
 	msg = "Got 904 data!"
 	logging.info(msg)
-	#print(msg)
+
 
 #=======================================================================
 # clean the 902 report
@@ -203,7 +275,6 @@ def clean_902():
 			sub_f = line[5]
 			sub_g = line[6]
 			sub_s = line[9]
-
 			if sub_e.startswith(thisrun):
 				#===================
 				# 902$6 from ldr/06
@@ -350,7 +421,8 @@ def clean_902():
 					if sub_b == 'o':
 						sub_b = 'm'
 					
-				newline = bbid, opid, sub_b, sub_6, sub_7, sub_d, sub_e, sub_f, sub_g, sub_s 
+				newline = bbid, opid, sub_b, sub_6, sub_7, sub_d, sub_e, sub_f, sub_g, sub_s
+				print('new => ',newline)
 				writer.writerow(newline)
 	msg = '902 report is clean!'
 	run_logger.info(msg)
