@@ -104,7 +104,7 @@ def main():
 	Call all of the functions sequentially
 	"""
 	run_logger.info("start " + "=" * 25)
-	get_902()
+	#get_902()
 	get_904()
 	get_tables(allauthmdb, all903mdb)
 	clean_902()
@@ -163,26 +163,38 @@ def get_902():
 			f902 = row[1]
 			if row[1]:
 				f902 = row[1]
-				f902 = f902.replace('902:  :','').replace(' ','')
+				f902 = f902.replace('902:  :','').replace(' ','').replace('//','')
 				f902_split = f902.split('$')
 				if len(f902_split) > 1:
 					s902a = f902_split[1][1:]
 				if len(f902_split) > 2:
-					s902b = f902_split[2][1:]
-				if len(f902_split) > 3:
-					s9026 = f902_split[3][1:]
-				if len(f902_split) > 4:
-					s9027 = f902_split[4][1:]
-				if len(f902_split) > 5:
-					s902d = f902_split[5][1:]
-				if len(f902_split) > 6:
-					s902f = f902_split[6][1:]
-				if len(f902_split) > 7:
-					s902e = f902_split[7][1:]
-				if len(f902_split) > 8:
-					s9027 = f902_split[8][1:]
-				if len(f902_split) > 9:
-					s902s = f902_split[9][1:]
+					if f902_split[2][0] == 'b':
+						s902b = f902_split[2][1:]
+						if len(f902_split) > 3:
+							s9026 = f902_split[3][1:]
+						if len(f902_split) > 4:
+							s9027 = f902_split[4][1:]
+						if len(f902_split) > 5:
+							s902d = f902_split[5][1:]
+						if len(f902_split) > 6:
+							s902f = f902_split[6][1:]
+						if len(f902_split) > 7:
+							s902e = f902_split[7][1:]
+					elif f902_split[2][0] == 's':
+						s902s = f902_split[2][1:]
+						if len(f902_split) > 3:
+							s902b = f902_split[3][1:]
+						if len(f902_split) > 4:
+							s9026 = f902_split[4][1:]
+						if len(f902_split) > 5:
+							s9027 = f902_split[5][1:]
+						if len(f902_split) > 6:
+							s902d = f902_split[6][1:]
+						if len(f902_split) > 7:
+							s902f = f902_split[7][1:]
+						if len(f902_split) > 8:
+							s902e = f902_split[8][1:]
+				
 			newrow = [bibid,s902a,s902b,s902d,s902e,s902f,s902g,s9026,s9027,s902s]
 			writer.writerow(newrow)
 	c.close()
@@ -213,8 +225,8 @@ def get_904():
 		(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd'))
 		OR (((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
 		AND ((BIB_HISTORY.ACTION_TYPE_ID)<>1)))""" % (startdate,enddate,startdate,enddate)	
+	print(SQL)	
 	c.execute(SQL)
-	print(SQL)
 	with open(indir + 'acq.csv',"wb+") as report:
 		writer = csv.writer(report)
 		header = ('V_ID','OP_ID','SUB_B','SUB_C','SUB_E','SUB_H')
@@ -229,7 +241,7 @@ def get_904():
 			bibid = row[0]
 			if row[1]:
 				f904 = row[1]
-				f904 = f904.replace('904:  :','').replace(' ','')
+				f904 = f904.replace('904:  :','').replace(' ','').replace('//','')
 				f904_split = f904.split('$')
 				if len(f904_split) > 1:
 					s904a = f904_split[1][1:]
@@ -497,9 +509,9 @@ def clean_904():
 					BIB_HISTORY.BIB_ID = '%s'""" % (startdate,enddate,startdate,enddate,bbid)
 					c.execute(SQL)
 					for row in c:
-						opid = ''.join(row)
+						opidv = ''.join(row)
 					c.close()
-					amsg = '%s,904$a,%s,%s' % (bbid,opid,opid)
+					amsg = '%s,904$a,%s,%s' % (bbid,opid,opidv)
 					change_logger.info(amsg)
 					#print(msg)
 				
