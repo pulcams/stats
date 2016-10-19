@@ -103,17 +103,17 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	run_logger.info("start " + "=" * 25)
+	#run_logger.info("start " + "=" * 25)
 	#get_902()
 	get_904()
-	get_tables(allauthmdb, all903mdb)
-	clean_902()
+	#get_tables(allauthmdb, all903mdb)
+	#clean_902()
 	clean_904()
-	process_authorities()
-	process_903()
+	#process_authorities()
+	#process_903()
 	cp_files()
 	archive()
-	run_logger.info("end " + "=" * 27)
+	#run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -149,6 +149,7 @@ def get_902():
 		header = ('V_ID','OP_ID','SUB_B','SUB_D','SUB_E','SUB_F','SUB_G','SUB_6','SUB_7','SUB_S')
 		writer.writerow(header)
 		for row in c:
+			el = ''
 			newrow = ''
 			s902a = ''
 			s902b = ''
@@ -162,38 +163,32 @@ def get_902():
 			bibid = row[0]
 			f902 = row[1]
 			if row[1]:
-				f902 = row[1]
-				f902 = f902.replace('902:  :','').replace(' ','').replace('//','')
-				f902_split = f902.split('$')
-				if len(f902_split) > 1:
-					s902a = f902_split[1][1:]
-				if len(f902_split) > 2:
-					if f902_split[2][0] == 'b':
-						s902b = f902_split[2][1:]
-						if len(f902_split) > 3:
-							s9026 = f902_split[3][1:]
-						if len(f902_split) > 4:
-							s9027 = f902_split[4][1:]
-						if len(f902_split) > 5:
-							s902d = f902_split[5][1:]
-						if len(f902_split) > 6:
-							s902f = f902_split[6][1:]
-						if len(f902_split) > 7:
-							s902e = f902_split[7][1:]
-					elif f902_split[2][0] == 's':
-						s902s = f902_split[2][1:]
-						if len(f902_split) > 3:
-							s902b = f902_split[3][1:]
-						if len(f902_split) > 4:
-							s9026 = f902_split[4][1:]
-						if len(f902_split) > 5:
-							s9027 = f902_split[5][1:]
-						if len(f902_split) > 6:
-							s902d = f902_split[6][1:]
-						if len(f902_split) > 7:
-							s902f = f902_split[7][1:]
-						if len(f902_split) > 8:
-							s902e = f902_split[8][1:]
+				f902_full = row[1]
+				f902s = f902_full.split('//')
+				for f902 in f902s: 
+					f902 = f902.replace('902:  :','').replace(' ','')
+					f902_split = f902.split('$')[1:]
+					print(f902_split)
+					if len(f902_split) > 1:
+						sf = dict((el[0],el[1:]) for el in f902_split)
+						if 'a' in sf:
+							s902a = sf['a']
+						if 'b' in sf:
+							s902b = sf['b']
+						if '6' in sf:
+							s9026 = sf['6']
+						if '7' in sf:
+							s9027 = sf['7']
+						if 'd' in sf:
+							s902d = sf['d']
+						if 'f' in sf:
+							s902f = sf['f']
+						if 'g' in sf:
+							s902f = sf['g']	
+						if 's' in sf:
+							s902f = sf['s']	
+						if 'e' in sf:
+							s902e = sf['e']	
 				
 			newrow = [bibid,s902a,s902b,s902d,s902e,s902f,s902g,s9026,s9027,s902s]
 			writer.writerow(newrow)
@@ -221,7 +216,7 @@ def get_904():
 	SQL = """SELECT DISTINCT BIB_MASTER.BIB_ID as V_ID,
 		princetondb.GETALLBIBTAG(BIB_MASTER.BIB_ID, '904',2) as f904
 		FROM BIB_MASTER LEFT JOIN BIB_HISTORY ON BIB_MASTER.BIB_ID = BIB_HISTORY.BIB_ID
-		WHERE 
+		WHERE
 		(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd'))
 		OR (((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
 		AND ((BIB_HISTORY.ACTION_TYPE_ID)<>1)))""" % (startdate,enddate,startdate,enddate)	
@@ -232,6 +227,7 @@ def get_904():
 		header = ('V_ID','OP_ID','SUB_B','SUB_C','SUB_E','SUB_H')
 		writer.writerow(header)
 		for row in c:
+			el = ''
 			newrow = ''
 			s904a = ''
 			s904b = ''
@@ -240,19 +236,25 @@ def get_904():
 			s904h = ''
 			bibid = row[0]
 			if row[1]:
-				f904 = row[1]
-				f904 = f904.replace('904:  :','').replace(' ','').replace('//','')
-				f904_split = f904.split('$')
-				if len(f904_split) > 1:
-					s904a = f904_split[1][1:]
-				if len(f904_split) > 2:
-					s904b = f904_split[2][1:]
-				if len(f904_split) > 3:
-					s904h = f904_split[3][1:]
-				if len(f904_split) > 4:
-					s904c = f904_split[4][1:]
-				if len(f904_split) > 5:
-					s904e = f904_split[5][1:]
+				f904_full = row[1]
+				f904s = f904_full.split('//')
+				for f904 in f904s: 
+					f904 = f904.replace('904:  :','').replace(' ','')
+					f904_split = f904.split('$')[1:]
+					if len(f904_split) > 1:
+						sf = dict((el[0],el[1:]) for el in f904_split)
+						print(sf)
+						if 'a' in sf:
+							s904a = sf['a']
+						if 'b' in sf:
+							s904b = sf['b']
+						if 'h' in sf:
+							s904h = sf['h']
+						if 'c' in sf:
+							s904c = sf['c']
+						if 'e' in sf:
+							s904e = sf['e']
+							
 			newrow = [bibid,s904a,s904b,s904c,s904e,s904h]
 			writer.writerow(newrow)
 	c.close()
@@ -434,7 +436,6 @@ def clean_902():
 						sub_b = 'm'
 					
 				newline = bbid, opid, sub_b, sub_6, sub_7, sub_d, sub_e, sub_f, sub_g, sub_s
-				print('new => ',newline)
 				writer.writerow(newline)
 	msg = '902 report is clean!'
 	run_logger.info(msg)
