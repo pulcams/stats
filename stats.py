@@ -91,6 +91,7 @@ with open('./lookups/operators.csv','rb') as ops:
 	oreader = csv.reader(ops)
 	for l in oreader:
 		operators.append(l[3])
+operators.append('vendor') # 'vendor' began summer 2016, checked w cjf
 
 # legit pcc'ers
 legit_pcc = []
@@ -105,12 +106,12 @@ def main():
 	"""
 	#run_logger.info("start " + "=" * 25)
 	#get_902()
-	get_904()
+	#get_904()
 	#get_tables(allauthmdb, all903mdb)
-	#clean_902()
+	clean_902()
 	clean_904()
-	#process_authorities()
-	#process_903()
+	process_authorities()
+	process_903()
 	cp_files()
 	archive()
 	#run_logger.info("end " + "=" * 27)
@@ -168,7 +169,7 @@ def get_902():
 				for f902 in f902s: 
 					f902 = f902.replace('902:  :','').replace(' ','')
 					f902_split = f902.split('$')[1:]
-					print(f902_split)
+					#print(f902_split)
 					if len(f902_split) > 1:
 						sf = dict((el[0],el[1:]) for el in f902_split)
 						if 'a' in sf:
@@ -184,9 +185,9 @@ def get_902():
 						if 'f' in sf:
 							s902f = sf['f']
 						if 'g' in sf:
-							s902f = sf['g']	
+							s902g = sf['g']	
 						if 's' in sf:
-							s902f = sf['s']	
+							s902s = sf['s']	
 						if 'e' in sf:
 							s902e = sf['e']	
 				
@@ -243,7 +244,7 @@ def get_904():
 					f904_split = f904.split('$')[1:]
 					if len(f904_split) > 1:
 						sf = dict((el[0],el[1:]) for el in f904_split)
-						print(sf)
+						#print(sf)
 						if 'a' in sf:
 							s904a = sf['a']
 						if 'b' in sf:
@@ -301,7 +302,6 @@ def clean_902():
 					for row in c:
 						msg = '%s,902$6,%s,%s' % (bbid,sub_6,''.join(row))
 						change_logger.info(msg)
-						print(msg)
 						sub_6 = ''.join(row)
 					c.close()
 				#===================
@@ -315,7 +315,6 @@ def clean_902():
 					for row in c:
 						msg = '%s,902$7,%s,%s' % (bbid,sub_7,''.join(row))
 						change_logger.info(msg)
-						print(msg)
 						sub_7 = ''.join(row)
 					c.close()
 					
@@ -332,7 +331,7 @@ def clean_902():
 					try:
 						for row in c:
 							f040 = ''.join(row)
-							print(f040)
+							#print(f040)
 							if '$aDLC' in f040 and '$cPUL' in f040: 
 								toc = 'l'
 							elif f040.count('$d') > 1 or '(OCoLC)' in f040:
@@ -341,32 +340,41 @@ def clean_902():
 								toc = 'o'
 							msg = '%s,902$b,%s,%s' % (bbid,sub_b,toc)
 							change_logger.info(msg)
-							print(msg)
 					except:
 						toc = 'm' # guessing that it's member if no 040 TODO - refine this
 							
 						sub_b = toc
 					c.close()
+
+				#===================
+				# 902$e
+				#===================
+				# regex to cut off all but first 8 chars (if numeric)
+				if sub_e != '' and not re.match('^\d{8}$',sub_e):
+					msg = '%s,902$e,%s,%s' % (bbid,sub_e,sub_e[0:8])
+					change_logger.info(msg)
+					sub_e = sub_e[0:8]
 				
 				#===================
 				# 902$a operator id
 				#===================
 				# check against operators table => vger history
 				if (opid != '' and opid not in (operators)) or (opid == ''): # this covers numbers and other random entries, and blank opids
+					this902e = sub_e
 					c = db.cursor()
 					SQL = """SELECT DISTINCT BIB_HISTORY.OPERATOR_ID
 					FROM BIB_MASTER LEFT JOIN BIB_HISTORY ON BIB_MASTER.BIB_ID = BIB_HISTORY.BIB_ID
 					WHERE
-					(((BIB_MASTER.CREATE_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')) 
-					OR ((BIB_HISTORY.ACTION_DATE) Between to_date ('%s', 'yyyy/mm/dd') And to_date ('%s', 'yyyy/mm/dd')
+					(((to_char(BIB_MASTER.CREATE_DATE,'yyyymmdd')) = '%s') 
+					OR ((to_char(BIB_HISTORY.ACTION_DATE,'yyyymmdd')) = '%s' 
 					AND (BIB_HISTORY.ACTION_TYPE_ID)<>1))
 					AND
-					BIB_HISTORY.BIB_ID = '%s'""" % (startdate,enddate,startdate,enddate,bbid)
+					BIB_HISTORY.BIB_ID = '%s'""" % (this902e,this902e,bbid)
+					#print(SQL)
 					c.execute(SQL)
 					for row in c:
 						msg = '%s,902$a,%s,%s' % (bbid,opid,''.join(row))
 						change_logger.info(msg)
-						print(msg)
 						opid = ''.join(row)
 					c.close()
 				
@@ -377,18 +385,7 @@ def clean_902():
 				if sub_d == '' or sub_d not in ['a','c','d','e','f','g','l','m','r','s','t','v','w']:
 					msg = '%s,902$d,%s,%s' % (bbid,sub_d,'v')
 					change_logger.info(msg)
-					print(msg)
 					sub_d = "v"
-				
-				#===================
-				# 902$e
-				#===================
-				# regex to cut off all but first 8 chars (if numeric)
-				if sub_e != '' and not re.match('^\d{8}$',sub_e):
-					msg = '%s,902$e,%s,%s' % (bbid,sub_e,sub_e[0:8])
-					change_logger.info(msg)
-					print(msg)
-					sub_e = sub_e[0:8]
 					
 				#===================
 				# 902$f entered manually
@@ -399,12 +396,10 @@ def clean_902():
 					msg = '%s,902$f,%s,%s' % (bbid,sub_f,'1')
 					sub_f = 1 
 					change_logger.info(msg)
-					print(msg)
 				elif not re.match(r'^[\d]+$', sub_f):
 					msg = '%s,902$f,%s,%s' % (bbid,sub_f,non_num.sub('',sub_f))
 					sub_f = non_num.sub('',sub_f)
 					change_logger.info(msg)
-					print(msg)
 					
 				#===================
 				# 902$g
@@ -430,7 +425,6 @@ def clean_902():
 				if sub_g == 'p' and opid not in (legit_pcc):
 					msg = '%s, %s, pcc $g%s $b%s, $g%s $b%s' % (bbid,opid,sub_g,sub_b,'?','m')
 					change_logger.info(msg)
-					print(msg)
 					sub_g = '?'
 					if sub_b == 'o':
 						sub_b = 'm'
@@ -439,7 +433,6 @@ def clean_902():
 				writer.writerow(newline)
 	msg = '902 report is clean!'
 	run_logger.info(msg)
-	print(msg)
 				
 #=======================================================================
 # clean the 904 report
@@ -464,6 +457,7 @@ def clean_904():
 			sub_c = line[3]
 			sub_e = line[4]
 			sub_h = line[5]
+			opidv = ''
 			
 			#===================
 			# 904$e date
@@ -520,13 +514,13 @@ def clean_904():
 				# 904$b type of receipt
 				#===================
 				# operators table unit (order* or not)
-				bmsg = ''
+				bmsg = bbid + ' $b is missing'
 				if sub_b.strip() not in ['a','d','g','m','o']:
 					with open('./lookups/operators.csv','rb') as ops:
 						oreader = csv.reader(ops)
 						for l in oreader:
-							if opid == l[2]:
-								unit = l[3] # get unit of operator
+							if opidv == l[3] or opid == l[3]:
+								unit = l[4] # get unit of operator
 								if unit.startswith("order"):
 									bmsg = '%s,904$b,%s,%s' % (bbid, sub_b, 'o')
 									sub_b = 'o'
@@ -670,7 +664,7 @@ def process_903():
 			timestamp = line[9]
 			d = datetime.datetime.strptime(timestamp, '%m/%d/%y %H:%M:%S').strftime('%Y%m%d')
 			if (int(d) <= int(lastdate)) and (int(thisid) > int(lastid)):
-				print('true', d, '<=',lastdate,'   ',thisid, lastid)
+				#print('true', d, '<=',lastdate,'   ',thisid, lastid)
 				writer.writerow(line)
 	msg = '903 table has been filtered'
 	run_logger.info(msg)
