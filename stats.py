@@ -3,8 +3,8 @@
 """
 Processing productivity stats
 Run with `python stats.py -m yyyymm` (e.g. python stats.py -m 201504)
-Once all's done, the _out files (in ./out) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069).
-from 2014/12
+Once all's done, the _out files (in ./out) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069). Authorities processing changed 201803.
+from 201412
 pmg
 """
 from collections import deque
@@ -38,7 +38,7 @@ ip = config.get('database', 'ip')
 
 dsn_tns = cx_Oracle.makedsn(ip,1521,sid)
 db = cx_Oracle.connect(user,pw,dsn_tns)
-today = time.strftime('%Y%m')
+#today = time.strftime('%Y%m')
 msg=''
 f300=''
 indir = "./in/"
@@ -53,18 +53,6 @@ logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S
 #changelog = logging.basicConfig(format='%(message)s',filename='logs/changes_'+today+'.log',level=logging.INFO)
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
-# run logger
-run_logger = logging.getLogger('simple_logger')
-hdlr_1 = logging.FileHandler('logs/run_'+today+'.log')
-hdlr_1.setFormatter(formatter)
-run_logger.addHandler(hdlr_1)
-
-# change logger
-change_logger = logging.getLogger('simple_logger_2')
-hdlr_2 = logging.FileHandler('logs/changes_'+today+'.log')    
-hdlr_2.setFormatter(formatter)
-change_logger.addHandler(hdlr_2)
-
 # argparse
 parser = argparse.ArgumentParser(description='Process monthly stats files.')
 parser.add_argument('-m','--month',type=str,dest="month",help="The month and year of the report needed, in the form YYYYMM'",required=True)
@@ -73,6 +61,18 @@ args = vars(parser.parse_args())
 thisrun = args['month']
 lastrun = '%s%02d01' % (thisrun[0:4],int(thisrun[4:6]) - 1)
 lastauth = 'authorities_' + datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b').replace(" ","_")
+
+# run logger
+run_logger = logging.getLogger('simple_logger')
+hdlr_1 = logging.FileHandler('logs/run_'+thisrun+'.log')
+hdlr_1.setFormatter(formatter)
+run_logger.addHandler(hdlr_1)
+
+# change logger
+change_logger = logging.getLogger('simple_logger_2')
+hdlr_2 = logging.FileHandler('logs/changes_'+thisrun+'.log')    
+hdlr_2.setFormatter(formatter)
+change_logger.addHandler(hdlr_2)
 
 if not re.match('^\d{6}$',thisrun):
 	print('Please enter the date in form YYYYDD')
@@ -104,17 +104,17 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	#run_logger.info("start " + "=" * 25)
+	run_logger.info("start " + "=" * 25)
 	#get_902()
 	#get_904()
-	#get_tables(allauthmdb, all903mdb)
+	get_tables(all903mdb) # allauthmdb 
 	clean_902()
 	clean_904()
 	process_authorities()
 	process_903()
 	cp_files()
 	archive()
-	#run_logger.info("end " + "=" * 27)
+	run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -441,6 +441,7 @@ def clean_904():
 	"""
 	Clean up 904 report.
 	"""
+	f040 = ''
 	with open(indir + 'acq.csv',"rb") as infile, open(outdir + '904_out.csv','wb+') as outfile:
 		reader = csv.reader(infile)
 		writer = csv.writer(outfile)
@@ -602,28 +603,31 @@ def process_authorities():
 		header = ('new order','initials','NACO','updates','SACO','NACO series','name/title','053')
 		writer.writerow(header)
 		for line in reader:
-			order = line[1]
-			opid = line[3]
-			naco1 = line[4]
-			naco2 = line[5]
-			naco3 = line[6]
-			naco4 = line[7]
-			naco5 = line[8]
-			update1 = line[9]
-			update2 = line[10]
-			update3 = line[11]
-			update4 = line[12]
-			update5 = line[13]
-			saco = line[14]
-			naco_series = line[15]
-			name_ti = line[16]
-			f053 = line[17]
+			order = '0' #line[1]
+			opid = line[1]
+			naco = line[2]
+			updates = line[3]
+			#naco1 = line[4]
+			#naco2 = line[5]
+			#naco3 = line[6]
+			#naco4 = line[7]
+			#naco5 = line[8]
+			#update1 = line[9]
+			#update2 = line[10]
+			#update3 = line[11]
+			#update4 = line[12]
+			#update5 = line[13]
+			saco = line[4]
+			naco_series = line[5]
+			name_ti = line[6]
+			f053 = line[7]
 			
-			# add the NACO and update figures together
-			naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
-			updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
+			# add the NACO and update figures together (no longer needed 201803)
+			# naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
+			# updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
 			
 			line = order, opid, naco, updates, saco, naco_series, name_ti, f053
+			print(line)
 			writer.writerow(line)
 			
 	msg = 'authorities table is ready for manual additions'
@@ -701,6 +705,7 @@ def get_tables(*mdbs):
 	"""
 	for mdb in mdbs:
 		last = ''
+		lasttbl = ''
 		# Get the list of table names with "mdb-tables"
 		table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]	
 		tables = table_names.split('\n')
@@ -708,18 +713,20 @@ def get_tables(*mdbs):
 		if '90x' in mdb: # the database is called "90x stats"
 			last = datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b')
 			lasttbl = 'authorities ' + last
-			
+	
 		## Dump each table as a CSV file using "mdb-export",
-		## converting " " in table names to "_" for the CSV filenames.
+		## converting " " in table names to "_" for the CSV filenames.      
 		for table in tables:
-		    if table != '' and (table == 'Results' or table == lasttbl): # Results is 903, latest will be latest authorities table
-		        filename = table.replace(" ","_") + ".csv"
-		        file = open(indir + filename, 'w')
-		        contents = subprocess.Popen(["mdb-export", mdb, table],stdout=subprocess.PIPE).communicate()[0]
-		        file.write(contents)
-		        file.close()
-			msg = 'got \'' + table + '\' from ' + mdb
-			run_logger.info(msg)
+			if table != '':
+				print(table, lasttbl)
+				if (table == 'Results' or table == lasttbl): # Results is 903, latest will be latest authorities table
+					filename = table.replace(" ","_") + ".csv"
+					file = open(indir + filename, 'w')
+					contents = subprocess.Popen(["mdb-export", mdb, table],stdout=subprocess.PIPE).communicate()[0]
+					file.write(contents)
+					file.close()
+					msg = 'got \'' + table + '\' from ' + mdb
+					run_logger.info(msg)
 			
 def cp_files():
 	"""
