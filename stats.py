@@ -8,6 +8,8 @@ from 201412
 pmg
 """
 from collections import deque
+from gsheets import Sheets
+
 import argparse
 import ConfigParser
 import csv
@@ -45,7 +47,7 @@ indir = "./in/"
 archivedir = "./archive/"
 outdir = "./out/"
 all903mdb = '/mnt/lib-terminal/catalog/fpdb/new_page_1.mdb' # up-to-date data from Cataloguing Modification Reporting Form (903)
-allauthmdb = '/mnt/lib-tsserver/cams/for Lena/90x stats.mdb' # latest authorities data, manually entered by Lena
+#allauthmdb = '/mnt/lib-tsserver/cams/for Lena/90x stats.mdb' # latest authorities data, manually entered by Lena
 w7 = '/home/pmgreen/Documents/petergreen/stats_temp/'
 
 # logging
@@ -104,17 +106,18 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	run_logger.info("start " + "=" * 25)
+	#run_logger.info("start " + "=" * 25)
 	#get_902()
 	#get_904()
-	get_tables(all903mdb) # allauthmdb 
-	clean_902()
-	clean_904()
+	#get_tables(all903mdb) # allauthmdb
+	get_naco() 
+	#clean_902()
+	#clean_904()
 	process_authorities()
-	process_903()
-	cp_files()
-	archive()
-	run_logger.info("end " + "=" * 27)
+	#process_903()
+	#cp_files()
+	#archive()
+	#run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -595,6 +598,7 @@ def clean_904():
 def process_authorities():
 	"""
 	Filter last month's authorities report.
+	The Google Sheets version has 2 header rows as of 201801
 	"""
 	with open(indir + lastauth + '.csv','rb') as auths, open(outdir + 'auths_out.csv','wb+') as authsout:
 		reader = csv.reader(auths)
@@ -602,37 +606,29 @@ def process_authorities():
 		next(reader, None)
 		header = ('new order','initials','NACO','updates','SACO','NACO series','name/title','053')
 		writer.writerow(header)
-		for line in reader:
-			order = '0' #line[1]
-			opid = line[1]
-			naco = line[2]
-			updates = line[3]
-			#naco1 = line[4]
-			#naco2 = line[5]
-			#naco3 = line[6]
-			#naco4 = line[7]
-			#naco5 = line[8]
-			#update1 = line[9]
-			#update2 = line[10]
-			#update3 = line[11]
-			#update4 = line[12]
-			#update5 = line[13]
-			saco = line[4]
-			naco_series = line[5]
-			name_ti = line[6]
-			f053 = line[7]
-			
-			# add the NACO and update figures together (no longer needed 201803)
-			# naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
-			# updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
-			
-			line = order, opid, naco, updates, saco, naco_series, name_ti, f053
-			print(line)
-			writer.writerow(line)
+		for i,line in enumerate(reader):
+			if i>=2:
+				order = '0' # useless, just keeping for convenience				
+				opid = line[0].lower()
+				naco = line[26]
+				updates = line[27]
+				saco = line[28]
+				naco_series = line[29]
+				name_ti = line[30]
+				f053 = line[31]
+				
+				# add the NACO and update figures together (no longer needed 201803)
+				# naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
+				# updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
+				
+				line = order, opid, naco, updates, saco, naco_series, name_ti, f053
+				print(line)
+				writer.writerow(line)
 			
 	msg = 'authorities table is ready for manual additions'
 	run_logger.info(msg)
 	print(msg)
+
 
 #=======================================================================
 # process 903 report
@@ -727,6 +723,28 @@ def get_tables(*mdbs):
 					file.close()
 					msg = 'got \'' + table + '\' from ' + mdb
 					run_logger.info(msg)
+
+def get_naco():
+	"""
+    Get NACO stats from Google Sheets
+	Requires the Google Drive api these instructions https://developers.google.com/drive/v3/web/quickstart/python
+	Uses gsheets
+	"""
+	sheets = Sheets.from_files('./client_secret.json','./storage.json')
+
+	fileId = '1Ntmb0fJc5-0Ul1ShucPu4aOymR2zIcw456rsXish5Lk'
+
+	url = 'https://docs.google.com/spreadsheets/d/' + fileId
+	
+	s = sheets.get(url)
+
+	nacocsv = indir + lastauth + '.csv'
+
+	sheet_index = int(thisrun[4:6]) - 1
+
+	s.sheets[sheet_index].to_csv(nacocsv,encoding='utf-8',dialect='excel')
+
+	
 			
 def cp_files():
 	"""
