@@ -106,18 +106,18 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	#run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
-	#get_tables(all903mdb) # allauthmdb
+	run_logger.info("start " + "=" * 25)
+	get_902()
+	get_904()
+	get_tables(all903mdb) # allauthmdb
 	get_naco() 
-	#clean_902()
-	#clean_904()
+	clean_902()
+	clean_904()
 	process_authorities()
-	#process_903()
-	#cp_files()
-	#archive()
-	#run_logger.info("end " + "=" * 27)
+	process_903()
+	cp_files()
+	archive()
+	run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -610,12 +610,12 @@ def process_authorities():
 			if i>=2:
 				order = '0' # useless, just keeping for convenience				
 				opid = line[0].lower()
-				naco = line[26]
-				updates = line[27]
-				saco = line[28]
-				naco_series = line[29]
-				name_ti = line[30]
-				f053 = line[31]
+				naco = line[-6:][0]
+				updates = line[-6:][1]
+				saco = line[-6:][2]
+				naco_series = line[-6:][3]
+				name_ti = line[-6:][4]
+				f053 = line[-6:][5]
 				
 				# add the NACO and update figures together (no longer needed 201803)
 				# naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
