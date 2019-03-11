@@ -3,7 +3,7 @@
 """
 Processing productivity stats
 Run with `python stats.py -m yyyymm` (e.g. python stats.py -m 201504)
-Once all's done, the _out files (in ./out) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069). Authorities processing changed 201803.
+Once all's done, the _out files (in ./out) are used to generate reports. This is done in MS Access for now (stats.accdb on lib-staff069). Authorities processing changed by naco committee 201803.
 from 201412
 pmg
 """
@@ -15,13 +15,21 @@ import ConfigParser
 import csv
 import cx_Oracle
 import datetime
+import httplib2
 import logging
 import os
+import pickle
 import re
 import shutil
 import sys, subprocess
 import time
 import datetime
+from apiclient.http import MediaFileUpload
+from googleapiclient.discovery import build
+from oauth2client import file, client, tools
+from oauth2client.service_account import ServiceAccountCredentials
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 # TODO ============================
 # send tables to tsserver as csv
 # document mounting shares with noserverino,nounix
@@ -38,6 +46,7 @@ pw = config.get('database', 'pw')
 sid = config.get('database', 'sid')
 ip = config.get('database', 'ip')
 
+http = httplib2.Http()
 dsn_tns = cx_Oracle.makedsn(ip,1521,sid)
 db = cx_Oracle.connect(user,pw,dsn_tns)
 #today = time.strftime('%Y%m')
@@ -115,6 +124,7 @@ def main():
 	clean_904()
 	process_authorities()
 	process_903()
+	results2gsheets()
 	cp_files()
 	archive()
 	run_logger.info("end " + "=" * 27)
@@ -392,7 +402,7 @@ def clean_902():
 					
 				#===================
 				# 902$f entered manually
-				#===================			
+				#===================
 				# numbers only, if no number == 1
 				non_num = re.compile(r'[^\d]+')
 				if sub_f == '':
@@ -406,7 +416,7 @@ def clean_902():
 					
 				#===================
 				# 902$g
-				#===================			
+				#===================
 				# values are 'p' or '?'
 				if sub_g not in ['p','?']:
 					sub_g = '?'
@@ -414,7 +424,7 @@ def clean_902():
 				
 				#===================
 				# 902$s
-				#===================			
+				#===================
 				# blanks should be '?'
 				if sub_s == '':
 					sub_s = '?'
@@ -604,24 +614,24 @@ def process_authorities():
 		reader = csv.reader(auths)
 		writer = csv.writer(authsout)
 		next(reader, None)
-		header = ('new order','initials','NACO','updates','SACO','NACO series','name/title','053')
+		header = ('new order','initials','NACO new','NACO updates','SACO','NACO Series','NACO Series Updates') # removing 053 201808
 		writer.writerow(header)
 		for i,line in enumerate(reader):
 			if i>=2:
-				order = '0' # useless, just keeping for convenience				
+				order = '0' # useless really, just keeping for convenience
 				opid = line[0].lower()
-				naco = line[-6:][0]
-				updates = line[-6:][1]
-				saco = line[-6:][2]
-				naco_series = line[-6:][3]
-				name_ti = line[-6:][4]
-				f053 = line[-6:][5]
+				naco = line[-5:][0]
+				updates = line[-5:][1]
+				saco = line[-5:][2]
+				naco_series = line[-5:][3]
+				updates_series = line[-5:][4]
+				#f053 = line[-5:][5] # removed 201807
 				
 				# add the NACO and update figures together (no longer needed 201803)
 				# naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
 				# updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
 				
-				line = order, opid, naco, updates, saco, naco_series, name_ti, f053
+				line = order, opid, naco, updates, saco, naco_series, updates_series
 				print(line)
 				writer.writerow(line)
 			
@@ -651,6 +661,8 @@ def process_903():
 	lastdate = raw_input("What's the end date (dpk and nb made large entries) yyyymmdd (inclusive)? ")
 	if not re.match('^\d+$',lastid):
 		sys.exit('Id needs to be an integer.')
+	msg = 'last 903 id was ' + lastid
+	run_logger.info(msg)
 	
 	with open(indir + 'Results.csv','rb') as f903, open(outdir + '903_out.csv','wb+') as f903out:
 		reader = csv.reader(f903)
@@ -659,6 +671,7 @@ def process_903():
 		header = ('ID', 'Initials', 'Sub_B','Sub_C', 'Num_Pieces', 'Note', 'Remote_computer_name', 'User_name', 'Browser_type', 'Timestamp')
 		writer.writerow(header)
 		for line in reader:
+			#results2gsheets(line)
 			thisid = line[0]
 			initials = line[1].lower()
 			timestamp = line[9]
@@ -694,7 +707,8 @@ def get_last_row(csv_filename):
 	with open(csv_filename, 'rb') as f:
 		return deque(csv.reader(f), 1)[0]
 	print ', '.join(get_last_row(filename))
-	
+
+
 def get_tables(*mdbs):
 	"""
 	Get latest 903 and authorities tables for processing
@@ -717,22 +731,47 @@ def get_tables(*mdbs):
 				print(table, lasttbl)
 				if (table == 'Results' or table == lasttbl): # Results is 903, latest will be latest authorities table
 					filename = table.replace(" ","_") + ".csv"
-					file = open(indir + filename, 'w')
+					thisfile = open(indir + filename, 'w')
 					contents = subprocess.Popen(["mdb-export", mdb, table],stdout=subprocess.PIPE).communicate()[0]
-					file.write(contents)
-					file.close()
+					thisfile.write(contents)
+					thisfile.close()
 					msg = 'got \'' + table + '\' from ' + mdb
 					run_logger.info(msg)
+
+
+def results2gsheets():
+	"""
+	Sent Results to Google Sheet which is datasource for a Tableau viz, for mwc
+	"""
+	gauth = GoogleAuth()
+	gauth.LocalWebserverAuth()
+	
+	drive = GoogleDrive(gauth)
+	
+	filename = "Results"
+	files = drive.ListFile({'q': "title='{}' and trashed=false".format(filename)}).GetList()
+	if files:
+	    file1 = files[0]
+	else:
+	    file1 = drive.CreateFile({'title': filename, 'mimeType': 'text/csv'})
+	
+	os.chdir('./in')
+	file1.SetContentFile(filename+'.csv')
+	file1.Upload({'convert':True})
+	msg = 'Uploaded %s' % file1
+	print(msg)
+	logging.info(msg)
 
 def get_naco():
 	"""
     Get NACO stats from Google Sheets
 	Requires the Google Drive api these instructions https://developers.google.com/drive/v3/web/quickstart/python
-	Uses gsheets
+	Uses gsheets. As of 201902 have to share with personal gmail account.
 	"""
 	sheets = Sheets.from_files('./client_secret.json','./storage.json')
 
-	fileId = '1Ntmb0fJc5-0Ul1ShucPu4aOymR2zIcw456rsXish5Lk'
+	#fileId = '1Ntmb0fJc5-0Ul1ShucPu4aOymR2zIcw456rsXish5Lk'
+	fileId = '1mVaWtiVj088WPt0aed6v2D_iVwGbB3ux-tJ5t-c_GCU'
 
 	url = 'https://docs.google.com/spreadsheets/d/' + fileId
 	
@@ -744,8 +783,10 @@ def get_naco():
 
 	s.sheets[sheet_index].to_csv(nacocsv,encoding='utf-8',dialect='excel')
 
-	
-			
+	msg = 'NACO stats saved to csv'
+	print(msg)
+	logging.info(msg)
+
 def cp_files():
 	"""
 	move the cleaned files (902, 903, 904, auth) to Windows 7 machine,
@@ -758,6 +799,7 @@ def cp_files():
 		shutil.copy(outdir + f, w7)
 		msg = 'moved ' + f
 		run_logger.info(msg)
-			
+
+
 if __name__ == "__main__":
 	main()
