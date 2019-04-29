@@ -18,6 +18,7 @@ import datetime
 import httplib2
 import logging
 import os
+import pandas
 import pickle
 import re
 import shutil
@@ -25,6 +26,7 @@ import sys, subprocess
 import time
 import datetime
 from apiclient.http import MediaFileUpload
+from collections import Counter
 from googleapiclient.discovery import build
 from oauth2client import file, client, tools
 from oauth2client.service_account import ServiceAccountCredentials
@@ -45,6 +47,7 @@ user = config.get('database', 'user')
 pw = config.get('database', 'pw')
 sid = config.get('database', 'sid')
 ip = config.get('database', 'ip')
+nafprod_sheet = config.get('sheets','nafprod')
 
 http = httplib2.Http()
 dsn_tns = cx_Oracle.makedsn(ip,1521,sid)
@@ -72,6 +75,8 @@ args = vars(parser.parse_args())
 thisrun = args['month']
 lastrun = '%s%02d01' % (thisrun[0:4],int(thisrun[4:6]) - 1)
 lastauth = 'authorities_' + datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b').replace(" ","_")
+
+nafcsv = './in/NAFProduction%s.csv' % thisrun
 
 # run logger
 run_logger = logging.getLogger('simple_logger')
@@ -111,23 +116,25 @@ with open('./lookups/legit_PCCers.csv','rb') as legit:
 	for l in lreader:
 		legit_pcc.append(l[1])
 
+
 def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	run_logger.info("start " + "=" * 25)
-	get_902()
-	get_904()
-	get_tables(all903mdb) # allauthmdb
-	get_naco() 
-	clean_902()
-	clean_904()
-	process_authorities()
-	process_903()
-	results2gsheets()
-	cp_files()
-	archive()
-	run_logger.info("end " + "=" * 27)
+	#run_logger.info("start " + "=" * 25)
+	#get_902()
+	#get_904()
+	#get_tables(all903mdb) # allauthmdb
+	##get_naco()
+	get_nafprod() 
+	#clean_902()
+	#clean_904()
+	#process_authorities()
+	#process_903()
+	#results2gsheets()
+	#cp_files()
+	#archive()
+	#run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -210,6 +217,7 @@ def get_902():
 	msg = "Got 902 data!"
 	logging.info(msg)
 	#print(msg)
+
 
 #=======================================================================
 # 904 report
@@ -446,7 +454,8 @@ def clean_902():
 				writer.writerow(newline)
 	msg = '902 report is clean!'
 	run_logger.info(msg)
-				
+
+
 #=======================================================================
 # clean the 904 report
 #=======================================================================
@@ -602,6 +611,7 @@ def clean_904():
 	run_logger.info(msg)
 	#print(msg)
 
+
 #=======================================================================
 # process authorities report
 #=======================================================================
@@ -635,6 +645,59 @@ def process_authorities():
 				print(line)
 				writer.writerow(line)
 			
+	msg = 'authorities table is ready for manual additions'
+	run_logger.info(msg)
+	print(msg)
+
+def process_authorities_gsheet():
+	"""
+	Filter NAFProduction Google Sheet
+	
+	'New' New NARs are counted from OTHER + ADD
+	'Updates' Updated NARs are counted from OTHER + RPL
+	'Series' New SARs are counted from SERIES + ADD
+	'Updates series' Updated SARs are counted from SERIES + RPL
+	'Saco' from Yang 'how'
+	
+	"""
+	with open(nafcsv,'rb') as auths:
+		reader = csv.reader(auths)
+		vgerids = {}
+		naco = 0
+		naco_update = 0
+		series = 0
+		series_update = 0
+		
+		next(reader, None)
+		for line in reader:
+			opid = line[1].lower() 
+			vgerids[opid] = {'naco':naco,'naco_update':naco_update,'series':series,'series_update':series_update} # inner dict
+
+	with open(nafcsv,'rb') as auths:
+		reader = csv.reader(auths)
+		for line in reader:
+			for i in vgerids:
+				opid = line[1].lower()
+				if opid == i and line[3] == 'OTHER' and line[4] == 'ADD':
+					vgerids[i]['naco'] += 1
+				elif line[3] == 'OTHER' and line[4] == 'RPL':
+					vgerids[opid]['naco_update'] += 1
+				elif line[3] == 'SERIES' and line[4] == 'ADD':
+					vgerids[opid]['series'] += 1
+				elif line[3] == 'SERIES' and line[4] == 'RPL':
+					vgerids[opid]['series_update'] += 1
+				
+	table = (pandas.DataFrame(vgerids).T)
+	table.to_csv(outdir + 'auths_out.csv')
+
+	# replace the first line (start with a comma)
+	with open(outdir + 'auths_out.csv','r') as src:
+		lines = src.readlines()
+	header = 'initials,NACO new,NACO updates,SACO,NACO Series,NACO Series Updates\n'
+	lines[0] = header
+	with open(outdir + 'auths_out.csv','w') as f:
+		f.writelines(lines)
+	
 	msg = 'authorities table is ready for manual additions'
 	run_logger.info(msg)
 	print(msg)
@@ -681,7 +744,8 @@ def process_903():
 				writer.writerow(line)
 	msg = '903 table has been filtered'
 	run_logger.info(msg)
-	
+
+
 def archive():
 	"""
 	archive reports; move output tables from temp/ to archive/
@@ -698,6 +762,7 @@ def archive():
 	msg = 'reports archived'
 	run_logger.info(msg)
 	print(msg)
+
 
 def get_last_row(csv_filename):
 	"""
@@ -759,8 +824,10 @@ def results2gsheets():
 	file1.SetContentFile(filename+'.csv')
 	file1.Upload({'convert':True})
 	msg = 'Uploaded %s' % file1
+	os.chdir('..')
 	print(msg)
 	logging.info(msg)
+
 
 def get_naco():
 	"""
@@ -787,6 +854,24 @@ def get_naco():
 	print(msg)
 	logging.info(msg)
 
+
+def get_nafprod():
+	"""
+	This is the replacement for get_naco()
+	"""
+	sheets = Sheets.from_files('./client_secret.json','./storage.json')
+	fileId = nafprod_sheet
+	url = 'https://docs.google.com/spreadsheets/d/' + fileId
+	s = sheets.get(url)
+	sheet_index = int(thisrun[-2:]) # sheet index should equal month
+	
+	s.sheets[sheet_index].to_csv(nafcsv,encoding='utf-8',dialect='excel')
+
+	msg = 'NAFProduction Google Sheet for %s saved to csv' % thisrun
+	print(msg)
+	logging.info(msg)
+
+
 def cp_files():
 	"""
 	move the cleaned files (902, 903, 904, auth) to Windows 7 machine,
@@ -802,4 +887,5 @@ def cp_files():
 
 
 if __name__ == "__main__":
-	main()
+	#main()
+	process_authorities_gsheet()
