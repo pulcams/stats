@@ -121,20 +121,21 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	#run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
-	#get_tables(all903mdb) # allauthmdb
+	run_logger.info("start " + "=" * 25)
+	get_902()
+	get_904()
+	get_tables(all903mdb) # allauthmdb
 	##get_naco()
 	get_nafprod() 
-	#clean_902()
-	#clean_904()
-	#process_authorities()
-	#process_903()
-	#results2gsheets()
-	#cp_files()
-	#archive()
-	#run_logger.info("end " + "=" * 27)
+	clean_902()
+	clean_904()
+	##process_authorities()
+	process_authorities_gsheet()
+	process_903()
+	results2gsheets()
+	cp_files()
+	archive()
+	run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -678,14 +679,15 @@ def process_authorities_gsheet():
 		for line in reader:
 			for i in vgerids:
 				opid = line[1].lower()
-				if opid == i and line[3] == 'OTHER' and line[4] == 'ADD':
-					vgerids[i]['naco'] += 1
-				elif line[3] == 'OTHER' and line[4] == 'RPL':
-					vgerids[opid]['naco_update'] += 1
-				elif line[3] == 'SERIES' and line[4] == 'ADD':
-					vgerids[opid]['series'] += 1
-				elif line[3] == 'SERIES' and line[4] == 'RPL':
-					vgerids[opid]['series_update'] += 1
+				if opid == i:
+					if line[3] == 'OTHER' and line[4] == 'ADD':
+						vgerids[i]['naco'] += 1
+					elif line[3] == 'OTHER' and line[4] == 'RPL':
+						vgerids[i]['naco_update'] += 1
+					elif line[3] == 'SERIES' and line[4] == 'ADD':
+						vgerids[i]['series'] += 1
+					elif line[3] == 'SERIES' and line[4] == 'RPL':
+						vgerids[i]['series_update'] += 1
 				
 	table = (pandas.DataFrame(vgerids).T)
 	table.to_csv(outdir + 'auths_out.csv')
@@ -887,5 +889,4 @@ def cp_files():
 
 
 if __name__ == "__main__":
-	#main()
-	process_authorities_gsheet()
+	main()
