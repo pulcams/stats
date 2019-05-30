@@ -48,6 +48,7 @@ pw = config.get('database', 'pw')
 sid = config.get('database', 'sid')
 ip = config.get('database', 'ip')
 nafprod_sheet = config.get('sheets','nafprod')
+saco_sheet = config.get('sheets','saco')
 
 http = httplib2.Http()
 dsn_tns = cx_Oracle.makedsn(ip,1521,sid)
@@ -77,6 +78,9 @@ lastrun = '%s%02d01' % (thisrun[0:4],int(thisrun[4:6]) - 1)
 lastauth = 'authorities_' + datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b').replace(" ","_")
 
 nafcsv = './in/NAFProduction%s.csv' % thisrun
+sacocsv = './in/saco%s.csv' % thisrun
+
+auths_out = outdir + 'auths_out.csv'
 
 # run logger
 run_logger = logging.getLogger('simple_logger')
@@ -121,21 +125,22 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	run_logger.info("start " + "=" * 25)
-	get_902()
-	get_904()
-	get_tables(all903mdb) # allauthmdb
-	##get_naco()
-	get_nafprod() 
-	clean_902()
-	clean_904()
-	##process_authorities()
+	# run_logger.info("start " + "=" * 25)
+	# get_902()
+	# get_904()
+	# get_tables(all903mdb) # allauthmdb
+	# ##get_naco()
+	#get_nafprod()
+	#get_saco()
+	# clean_902()
+	# clean_904()
+	# ##process_authorities()
 	process_authorities_gsheet()
-	process_903()
-	results2gsheets()
-	cp_files()
-	archive()
-	run_logger.info("end " + "=" * 27)
+	# process_903()
+	# results2gsheets()
+	#cp_files()
+	#archive()
+	# run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -616,39 +621,39 @@ def clean_904():
 #=======================================================================
 # process authorities report
 #=======================================================================
-def process_authorities():
-	"""
-	Filter last month's authorities report.
-	The Google Sheets version has 2 header rows as of 201801
-	"""
-	with open(indir + lastauth + '.csv','rb') as auths, open(outdir + 'auths_out.csv','wb+') as authsout:
-		reader = csv.reader(auths)
-		writer = csv.writer(authsout)
-		next(reader, None)
-		header = ('new order','initials','NACO new','NACO updates','SACO','NACO Series','NACO Series Updates') # removing 053 201808
-		writer.writerow(header)
-		for i,line in enumerate(reader):
-			if i>=2:
-				order = '0' # useless really, just keeping for convenience
-				opid = line[0].lower()
-				naco = line[-5:][0]
-				updates = line[-5:][1]
-				saco = line[-5:][2]
-				naco_series = line[-5:][3]
-				updates_series = line[-5:][4]
-				#f053 = line[-5:][5] # removed 201807
+# def process_authorities():
+	# """
+	# Filter last month's authorities report.
+	# The Google Sheets version has 2 header rows as of 201801
+	# """
+	# with open(indir + lastauth + '.csv','rb') as auths, open(outdir + 'auths_out.csv','wb+') as authsout:
+		# reader = csv.reader(auths)
+		# writer = csv.writer(authsout)
+		# next(reader, None)
+		# header = ('initials','NACO new','NACO updates','SACO','NACO Series','NACO Series Updates') # removing 053 201808
+		# writer.writerow(header)
+		# for i,line in enumerate(reader):
+			# if i>=2:
+				# order = '0' # useless really, just keeping for convenience
+				# opid = line[0].lower()
+				# naco = line[-5:][0]
+				# updates = line[-5:][1]
+				# saco = line[-5:][2]
+				# naco_series = line[-5:][3]
+				# updates_series = line[-5:][4]
+				# #f053 = line[-5:][5] # removed 201807
 				
-				# add the NACO and update figures together (no longer needed 201803)
-				# naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
-				# updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
+				# # add the NACO and update figures together (no longer needed 201803)
+				# # naco = int(naco1) + int(naco2) + int(naco3) + int(naco4) + int(naco5)
+				# # updates = int(update1) + int(update2) + int(update3) + int(update4) + int(update5)
 				
-				line = order, opid, naco, updates, saco, naco_series, updates_series
-				print(line)
-				writer.writerow(line)
+				# line = order, opid, naco, updates, saco, naco_series, updates_series
+				# print(line)
+				# writer.writerow(line)
 			
-	msg = 'authorities table is ready for manual additions'
-	run_logger.info(msg)
-	print(msg)
+	# msg = 'authorities table is ready for manual additions'
+	# run_logger.info(msg)
+	# print(msg)
 
 def process_authorities_gsheet():
 	"""
@@ -690,16 +695,25 @@ def process_authorities_gsheet():
 						vgerids[i]['series_update'] += 1
 				
 	table = (pandas.DataFrame(vgerids).T)
-	table.to_csv(outdir + 'auths_out.csv')
+	table.to_csv(auths_out)
 
 	# replace the first line (start with a comma)
-	with open(outdir + 'auths_out.csv','r') as src:
+	with open(auths_out,'r') as src:
 		lines = src.readlines()
-	header = 'initials,NACO new,NACO updates,SACO,NACO Series,NACO Series Updates\n'
+	header = 'vgerid,NACO new,NACO updates,NACO Series,NACO Series Updates\n'
 	lines[0] = header
-	with open(outdir + 'auths_out.csv','w') as f:
+	with open(auths_out,'w') as f:
 		f.writelines(lines)
-	
+
+	# merge the saco sheet with the nafprod sheet, 'df'=dataframe
+	df1=pandas.read_csv(auths_out)
+	df2=pandas.read_csv(sacocsv, index_col="vgerid")
+	df2['SACO'] = df2[['LCSH New','LCSH Updates','LCC New','LCC Updates']].sum(axis=1)
+	df2 = df2.drop(df2.columns[[0,1,2,3]],axis=1).astype(int)
+	df2.to_csv(indir + 'saco_summed.csv',header=True,index="vgerid")
+	df3=pandas.read_csv(indir + 'saco_summed.csv', index_col="vgerid")
+	combo=pandas.merge(df1,df3,on="vgerid")
+	combo.to_csv(auths_out)
 	msg = 'authorities table is ready for manual additions'
 	run_logger.info(msg)
 	print(msg)
@@ -870,6 +884,23 @@ def get_nafprod():
 	s.sheets[sheet_index].to_csv(nafcsv,encoding='utf-8',dialect='excel')
 
 	msg = 'NAFProduction Google Sheet for %s saved to csv' % thisrun
+	print(msg)
+	logging.info(msg)
+
+
+def get_saco():
+	"""
+	SACO is recorded in a separate Google Sheet as of 201905
+	"""
+	sheets = Sheets.from_files('./client_secret.json','./storage.json')
+	fileId = saco_sheet
+	url = 'https://docs.google.com/spreadsheets/d/' + fileId
+	s = sheets.get(url)
+	sheet_index = int(thisrun[-2:]) # sheet index should equal month
+	
+	s.sheets[sheet_index].to_csv(sacocsv,encoding='utf-8',dialect='excel')
+
+	msg = 'SACO Google Sheet for %s saved to csv' % thisrun
 	print(msg)
 	logging.info(msg)
 
