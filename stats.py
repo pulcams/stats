@@ -59,9 +59,9 @@ f300=''
 indir = "./in/"
 archivedir = "./archive/"
 outdir = "./out/"
-all903mdb = '/mnt/lib-terminal/catalog/fpdb/new_page_1.mdb' # up-to-date data from Cataloguing Modification Reporting Form (903)
+all903mdb = '/Volumes/catalog/fpdb/new_page_1.mdb' # up-to-date data from Cataloguing Modification Reporting Form (903)
 #allauthmdb = '/mnt/lib-tsserver/cams/for Lena/90x stats.mdb' # latest authorities data, manually entered by Lena
-w7 = '/home/pmgreen/Documents/petergreen/stats_temp/'
+w7 = '/Volumes/Documents/petergreen/stats_temp/'
 
 # logging
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
@@ -125,22 +125,22 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	# run_logger.info("start " + "=" * 25)
-	# get_902()
-	# get_904()
-	# get_tables(all903mdb) # allauthmdb
-	# ##get_naco()
-	#get_nafprod()
-	#get_saco()
-	# clean_902()
-	# clean_904()
-	# ##process_authorities()
+	run_logger.info("start " + "=" * 25)
+	get_902()
+	get_904()
+	get_tables(all903mdb) # allauthmdb
+	### get_naco()
+	get_nafprod()
+	get_saco()
+	clean_902()
+	clean_904()
+	### process_authorities()
 	process_authorities_gsheet()
-	# process_903()
-	# results2gsheets()
-	#cp_files()
-	#archive()
-	# run_logger.info("end " + "=" * 27)
+	process_903()
+	results2gsheets()
+	cp_files()
+	archive()
+	run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -795,29 +795,31 @@ def get_tables(*mdbs):
 	Get latest 903 and authorities tables for processing
 	"""
 	for mdb in mdbs:
+		print mdb
 		last = ''
 		lasttbl = ''
 		# Get the list of table names with "mdb-tables"
-		table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]	
-		tables = table_names.split('\n')
+		#table_names = subprocess.Popen(["mdb-tables", "-1", mdb], stdout=subprocess.PIPE).communicate()[0]	
+		#tables = table_names.split('\n')
+		
+		#table = 'Results'
+		#table_names = subprocess.check_output(["mdb-export", mdb, table])
+		#tables = table_names.decode().split('\n')
 	
-		if '90x' in mdb: # the database is called "90x stats"
-			last = datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b')
-			lasttbl = 'authorities ' + last
+		#if '90x' in mdb: # the database is called "90x stats"
+		#	last = datetime.datetime.strptime(thisrun, '%Y%m').strftime('%Y-%m %b')
+		#	lasttbl = 'authorities ' + last
 	
 		## Dump each table as a CSV file using "mdb-export",
-		## converting " " in table names to "_" for the CSV filenames.      
-		for table in tables:
-			if table != '':
-				print(table, lasttbl)
-				if (table == 'Results' or table == lasttbl): # Results is 903, latest will be latest authorities table
-					filename = table.replace(" ","_") + ".csv"
-					thisfile = open(indir + filename, 'w')
-					contents = subprocess.Popen(["mdb-export", mdb, table],stdout=subprocess.PIPE).communicate()[0]
-					thisfile.write(contents)
-					thisfile.close()
-					msg = 'got \'' + table + '\' from ' + mdb
-					run_logger.info(msg)
+		## converting " " in table names to "_" for the CSV filenames.     
+		table = 'Results' # Results is 903s
+		filename = table + ".csv"
+		thisfile = open(indir + filename, 'w')
+		contents = subprocess.Popen(["mdb-export", mdb, table],stdout=subprocess.PIPE).communicate()[0]
+		thisfile.write(contents)
+		thisfile.close()
+		msg = 'got \'' + table + '\' from ' + mdb
+		run_logger.info(msg)
 
 
 def results2gsheets():
