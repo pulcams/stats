@@ -102,7 +102,7 @@ if not re.match('^\d{6}$',thisrun):
 startdate = '%s/%02d/01' % (thisrun[0:4],int(thisrun[4:6]))
 if (int(thisrun[4:6]) == 12): # if last month of year...
 	enddate = '%s/%02d/01' % (int(thisrun[0:4])+1, 1)
-else:	
+else:
 	enddate = '%s/%02d/01' % (thisrun[0:4],int(thisrun[4:6]) + 1)
 
 # operators
@@ -125,20 +125,21 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	#run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
-	#get_tables(all903mdb) # allauthmdb
+	run_logger.info("start " + "=" * 25)
+	get_902()
+	get_904()
+	###get_tables(all903mdb) # allauthmdb
 	### get_naco()
-	#get_nafprod()
-	#get_saco()
-	#clean_902()
-	#clean_904()
+	# TODO this: get_903()
+	get_nafprod()
+	get_saco()
+	clean_902()
+	clean_904()
 	### process_authorities()
 	process_authorities_gsheet()
 	process_903()
 	results2gsheets()
-	cp_files()
+	### cp_files()
 	archive()
 	run_logger.info("end " + "=" * 27)
 
@@ -676,22 +677,22 @@ def process_authorities_gsheet():
 		
 		next(reader, None)
 		for line in reader:
-			opid = line[0].lower() 
+			opid = line[1].lower() 
 			vgerids[opid] = {'naco':naco,'naco_update':naco_update,'series':series,'series_update':series_update} # inner dict
 
 	with open(nafcsv,'rb') as auths:
 		reader = csv.reader(auths)
 		for line in reader:
 			for i in vgerids:
-				opid = line[0].lower()
+				opid = line[1].lower()
 				if opid == i:
-					if line[2] == 'OTHER' and line[3] == 'ADD':
+					if line[3] == 'OTHER' and line[4] == 'ADD':
 						vgerids[i]['naco'] += 1
-					elif line[2] == 'OTHER' and line[3] == 'RPL':
+					elif line[3] == 'OTHER' and line[4] == 'RPL':
 						vgerids[i]['naco_update'] += 1
-					elif line[2] == 'SERIES' and line[3] == 'ADD':
+					elif line[3] == 'SERIES' and line[4] == 'ADD':
 						vgerids[i]['series'] += 1
-					elif line[2] == 'SERIES' and line[3] == 'RPL':
+					elif line[3] == 'SERIES' and line[4] == 'RPL':
 						vgerids[i]['series_update'] += 1
 				
 	table = (pandas.DataFrame(vgerids).T)
@@ -743,19 +744,29 @@ def process_903():
 	msg = 'last 903 id was ' + lastid
 	run_logger.info(msg)
 	
-	with open(indir + 'Results.csv','rb') as f903, open(outdir + '903_out.csv','wb+') as f903out:
+	with open(indir + 'cataloging_modification_reporting_form.csv','rb') as f903, open(outdir + '903_out.csv','wb+') as f903out:
 		reader = csv.reader(f903)
 		writer = csv.writer(f903out)
+		next(reader, None)
+		next(reader, None)
 		next(reader, None)
 		header = ('ID', 'Initials', 'Sub_B','Sub_C', 'Num_Pieces', 'Note', 'Remote_computer_name', 'User_name', 'Browser_type', 'Timestamp')
 		writer.writerow(header)
 		for line in reader:
 			#results2gsheets(line)
-			thisid = line[0]
-			initials = line[1].lower()
-			timestamp = line[9]
-			d = datetime.datetime.strptime(timestamp, '%m/%d/%y %H:%M:%S').strftime('%Y%m%d')
+			thisid = line[1]
+			initials = line[9].lower()
+			sub_b = line[10]
+			sub_c = line[9]
+			num_pieces = line[12]
+			note = line[13]
+			remote_ip = line[6]
+			username = line[8]
+			browser = line[6]
+			timestamp = line[2]
+			d = datetime.datetime.strptime(timestamp, '%m/%d/%Y - %I:%M%p').strftime('%Y%m%d')
 			if (int(d) <= int(lastdate)) and (int(thisid) > int(lastid)):
+				line = [thisid, initials, sub_b, sub_c, num_pieces, note, remote_ip, username, browser, timestamp]
 				#print('true', d, '<=',lastdate,'   ',thisid, lastid)
 				writer.writerow(line)
 	msg = '903 table has been filtered'
@@ -847,30 +858,30 @@ def results2gsheets():
 	logging.info(msg)
 
 
-def get_naco():
-	"""
-    Get NACO stats from Google Sheets
-	Requires the Google Drive api these instructions https://developers.google.com/drive/v3/web/quickstart/python
-	Uses gsheets. As of 201902 have to share with personal gmail account.
-	"""
-	sheets = Sheets.from_files('./client_secret.json','./storage.json')
+# def get_naco():
+	# """
+    # Get NACO stats from Google Sheets
+	# Requires the Google Drive api these instructions https://developers.google.com/drive/v3/web/quickstart/python
+	# Uses gsheets. As of 201902 have to share with personal gmail account.
+	# """
+	# sheets = Sheets.from_files('./client_secret.json','./storage.json')
 
-	#fileId = '1Ntmb0fJc5-0Ul1ShucPu4aOymR2zIcw456rsXish5Lk'
-	fileId = '1mVaWtiVj088WPt0aed6v2D_iVwGbB3ux-tJ5t-c_GCU'
+	# #fileId = '1Ntmb0fJc5-0Ul1ShucPu4aOymR2zIcw456rsXish5Lk'
+	# fileId = '1mVaWtiVj088WPt0aed6v2D_iVwGbB3ux-tJ5t-c_GCU'
 
-	url = 'https://docs.google.com/spreadsheets/d/' + fileId
+	# url = 'https://docs.google.com/spreadsheets/d/' + fileId
 	
-	s = sheets.get(url)
+	# s = sheets.get(url)
 
-	nacocsv = indir + lastauth + '.csv'
+	# nacocsv = indir + lastauth + '.csv'
 
-	sheet_index = int(thisrun[4:6]) - 1
+	# sheet_index = int(thisrun[4:6]) - 1
 
-	s.sheets[sheet_index].to_csv(nacocsv,encoding='utf-8',dialect='excel')
+	# s.sheets[sheet_index].to_csv(nacocsv,encoding='utf-8',dialect='excel')
 
-	msg = 'NACO stats saved to csv'
-	print(msg)
-	logging.info(msg)
+	# msg = 'NACO stats saved to csv'
+	# print(msg)
+	# logging.info(msg)
 
 
 def get_nafprod():
