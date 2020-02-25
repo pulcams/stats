@@ -125,23 +125,23 @@ def main():
 	"""
 	Call all of the functions sequentially
 	"""
-	#run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
+	run_logger.info("start " + "=" * 25)
+	get_902()
+	get_904()
 	###get_tables(all903mdb) # allauthmdb
 	### get_naco()
 	# TODO this: get_903()
 	get_nafprod()
 	get_saco()
-	#clean_902()
-	#clean_904()
+	clean_902()
+	clean_904()
 	### process_authorities()
 	process_authorities_gsheet()
-	#process_903()
-	#results2gsheets()
+	process_903()
+	results2gsheets()
 	### cp_files()
-	#archive()
-	#run_logger.info("end " + "=" * 27)
+	archive()
+	run_logger.info("end " + "=" * 27)
 
 #=======================================================================
 # 902 report
@@ -909,7 +909,7 @@ def get_saco():
 	fileId = saco_sheet
 	url = 'https://docs.google.com/spreadsheets/d/' + fileId
 	s = sheets.get(url)
-	sheet_index = int(thisrun[-2:]) # sheet index should equal month
+	sheet_index = int(thisrun[-2:]) - 1 # sheet index should equal month
 	
 	s.sheets[sheet_index].to_csv(sacocsv,encoding='utf-8',dialect='excel')
 
