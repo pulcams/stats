@@ -123,15 +123,15 @@ def main():
 	'''
 	Call all of the functions sequentially
 	'''
-	#run_logger.info("start " + "=" * 25)
-	#get_902()
-	#get_904()
+	run_logger.info("start " + "=" * 25)
+	get_902()
+	get_904()
 	# TODO ? get_903()
-	#get_nafprod()
-	#get_saco()
-	#clean_902()
-	#clean_904()
-	#process_authorities_gsheet()
+	get_nafprod()
+	get_saco()
+	clean_902()
+	clean_904()
+	process_authorities_gsheet()
 	process_903()
 	results2gsheets()
 	archive()
@@ -475,7 +475,7 @@ def clean_904():
 				# operators table unit (order* or not)
 				bmsg = bbid + ' $b is missing'
 				if sub_b.strip() not in ['a','d','g','m','o']:
-					with open('./lookups/operators.csv','rb') as ops:
+					with open('./lookups/operators.csv','r') as ops:
 						oreader = csv.reader(ops)
 						for l in oreader:
 							if opidv == l[3] or opid == l[3]:
