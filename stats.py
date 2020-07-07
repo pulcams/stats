@@ -5,7 +5,8 @@ Processing productivity stats
 Run with `python3 stats.py -m yyyymm` (e.g. python3 stats.py -m 202004)
 Once all's done, the _out files (in ./out) are used to generate reports. 
 This is done in MS Access (stats.accdb on lib-staff586). 
-For 903: download as Excel and save as ./in/cataloging-modification-form.csv 
+For 903: download as Excel and save as
+./in/cataloging_modification_reporting_form.csv 
 https://library.princeton.edu/general/cataloging-modification-reporting-form
 Note: Authorities processing was changed by naco committee 201803.
 '''
@@ -55,7 +56,7 @@ saco_sheet = config.get('sheets','saco')
 
 http = httplib2.Http()
 dsn_tns = cx_Oracle.makedsn(ip,1521,sid)
-db = cx_Oracle.connect(user,pw,dsn_tns)
+db = cx_Oracle.connect(user, pw, dsn_tns, encoding="UTF-8", nencoding="UTF-8")
 msg=''
 f300=''
 indir = "./in/"
