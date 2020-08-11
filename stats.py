@@ -124,14 +124,14 @@ def main():
 	'''
 	Call all of the functions sequentially
 	'''
-	run_logger.info("start " + "=" * 25)
-	get_902()
-	get_904()
-	# TODO ? get_903()
-	get_nafprod()
-	get_saco()
-	clean_902()
-	clean_904()
+	#run_logger.info("start " + "=" * 25)
+	#get_902()
+	#get_904()
+	## TODO ? get_903()
+	#get_nafprod()
+	#get_saco()
+	#clean_902()
+	#clean_904()
 	process_authorities_gsheet()
 	process_903()
 	results2gsheets()
@@ -646,7 +646,7 @@ def process_903():
 			username = line[8]
 			browser = line[6]
 			timestamp = line[2]
-			d = datetime.datetime.strptime(timestamp, '%m/%d/%y %H:%M').strftime('%Y%m%d')
+			d = datetime.datetime.strptime(timestamp, '%m/%d/%Y - %I:%M%p').strftime('%Y%m%d')
 			if (int(d) <= int(lastdate)) and (int(thisid) > int(lastid)):
 				line = [thisid, initials, sub_b, sub_c, num_pieces, note, remote_ip, username, browser, timestamp]
 				#print('true', d, '<=',lastdate,'   ',thisid, lastid)
